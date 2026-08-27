@@ -97,7 +97,7 @@ docs: 补充快速开始示例
 
 ## 10. 团队 Skill（规范的可执行化）
 
-以下 skill 源码在项目 `skills/` 目录（入库、可版本化），并安装到 `~\.claude\skills` 与 `~\.agents\skills` 全局生效；修改后需重新复制安装：
+以下 skill 源码在项目 `skills/` 目录（入库、可版本化），agent 实际从用户主目录加载（`~\.claude\skills`、`~\.agents\skills`）。修改 `skills/` 源码后必须重新同步安装：`npm run skills:sync`（CI 或自查用 `npm run skills:check`）：
 
 | Skill | 用途 | 触发时机 |
 | --- | --- | --- |
