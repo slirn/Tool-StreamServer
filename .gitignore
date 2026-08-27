@@ -5,6 +5,12 @@ node_modules/
 dist/
 coverage/
 
+# HLS 媒体分片（NMS mediaroot）
+media/
+
+# NMS LightweightStore（运行时持久化目录）
+data/
+
 # 日志
 *.log
 logs/

@@ -49,11 +49,11 @@ npm run format
 推流与拉流示例：
 
 ```bash
-# 推流（OBS 或 ffmpeg）
-ffmpeg -re -i input.mp4 -c copy -f flv rtmp://localhost:1935/live/stream1
+# 推流（OBS 或 ffmpeg；关键帧间隔建议 2s，HLS 切片依赖关键帧）
+ffmpeg -re -i input.mp4 -c copy -g 60 -f flv rtmp://localhost:1935/live/stream1
 
 # 拉流
-# HLS:       http://localhost:8000/live/stream1/index.m3u8
+# HLS:       http://localhost:8000/hls/live/stream1/index.m3u8
 # HTTP-FLV:  http://localhost:8000/live/stream1.flv
 ```
 
@@ -105,6 +105,6 @@ StreamServer/
 ## 路线图
 
 - [x] M1：工程骨架（规范落地 + 依赖安装 + CI 流水线）——已完成：src 分层骨架 + 配置加载 + 日志脱敏 + 架构守护测试 + husky 双钩子
-- [ ] M2：RTMP 推流接入与基础 HLS 拉流
+- [x] M2：RTMP 推流接入与基础 HLS 拉流——已完成：NMS 4.3.2 适配 + egress ffmpeg 切片（ADR-006）+ e2e 集成测试
 - [ ] M3：HTTP-FLV、流生命周期事件、鉴权
 - [ ] M4：录制、管理 API、观测（日志 / 指标）

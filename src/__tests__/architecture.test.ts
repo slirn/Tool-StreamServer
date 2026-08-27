@@ -83,12 +83,26 @@ describe('架构守护：依赖方向（ARCHITECTURE §4）', () => {
       const top = rel(f).split('/')[0]!;
       for (const spec of importsOf(f)) {
         if (!spec.startsWith('.')) continue;
-        const normalized = spec.replace(/^(\.\.\/)+/, '');
+        // 归一化：剥离 ../ 前缀与 ./ 前缀，便于按首段判别目标模块
+        const normalized = spec.replace(/^(\.\.\/)+/, '').replace(/^\.\//, '');
         const target = normalized.split('/')[0]!;
-        if (target === top) continue;
+        // 同目录引用（./xxx.js）或目标落在本模块内部：合法
+        if (target === top || !normalized.includes('/')) continue;
         if (top === 'ingress' ? !allowed.has(target) : target !== 'core' && target !== 'lib') {
           violations.push(`${rel(f)} -> ${spec}`);
         }
+      }
+    }
+    expect(violations, violations.join('\n')).toEqual([]);
+  });
+
+  it('第三方包白名单：node-media-server 仅允许出现在 ingress/nms-server.ts', () => {
+    const violations: string[] = [];
+    for (const f of files) {
+      for (const spec of importsOf(f)) {
+        if (spec.startsWith('.') || spec.startsWith('node:')) continue;
+        if (spec === 'node-media-server' && rel(f) === 'ingress/nms-server.ts') continue;
+        violations.push(`${rel(f)} -> ${spec}`);
       }
     }
     expect(violations, violations.join('\n')).toEqual([]);

@@ -31,11 +31,12 @@ flowchart LR
 
 | # | 决策 | 状态 | 理由 |
 | --- | --- | --- | --- |
-| ADR-001 | 基于 Node-Media-Server 封装媒体核心，不自研 RTMP / HLS 解析 | 提议 | 成熟、维护活跃；把精力放在业务层（鉴权、录制、编排） |
-| ADR-002 | TypeScript 严格模式 + NodeNext 模块 | 提议 | 类型安全；ESM 为主 |
-| ADR-003 | 配置 = 环境变量 + `config/` 文件，启动时 schema 校验 | 提议 | 部署友好，避免魔法值 |
-| ADR-004 | 业务层通过事件 / 抽象依赖媒体核心，禁止反向依赖 | 提议 | 可测试、可替换实现 |
-| ADR-005 | 单进程 + 内存转发表，v1 不做多节点 | 提议 | 满足 v1 规模，避免过早分布式 |
+| ADR-001 | 基于 Node-Media-Server 封装媒体核心（仅 RTMP + HTTP-FLV + 静态伺服），不自研协议解析 | 采纳 | 成熟、维护活跃；把精力放在业务层（鉴权、录制、编排）。**M2 实测发现 v4 已移除 HLS/trans**，原方案中"NMS 提供 HLS"的部分由 ADR-006 替代 |
+| ADR-002 | TypeScript 严格模式 + NodeNext 模块 | 采纳 | 类型安全；ESM 为主（M2 已落地，NMS 为 CJS 经 esModuleInterop 互操作） |
+| ADR-003 | 配置 = 环境变量 + `config/` 文件，启动时 schema 校验 | 采纳 | 部署友好，避免魔法值（M1/M2 落地：fail-fast + 生产强制 AUTH_SECRET + 路径穿越校验） |
+| ADR-004 | 业务层通过事件 / 抽象依赖媒体核心，禁止反向依赖 | 采纳 | 可测试、可替换实现（架构守护测试固化） |
+| ADR-005 | 单进程 + 内存转发表，v1 不做多节点 | 采纳 | 满足 v1 规模，避免过早分布式（MemoryStreamRegistry 落地） |
+| ADR-006 | HLS 由 egress 层实现：每路活跃流 spawn 一个 ffmpeg（RTMP 拉 → HLS 切片），经 NMS 静态路由伺服 | 采纳 | NMS v4 无内置 HLS；自建 egress 更贴合架构分层。代价：依赖外部 ffmpeg、关键帧间隔决定切片延迟；含就绪重试与宽限期清理 |
 
 > ADR 状态流转：提议 → 采纳 → 已替换。新决策按 §9 模板登记，先评审后采纳。
 

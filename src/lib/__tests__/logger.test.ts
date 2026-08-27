@@ -13,18 +13,20 @@ describe('createLogger', () => {
     expect(JSON.parse(lines[0]!).level).toBe('warn');
   });
 
-  it('敏感字段脱敏（顶层 + 嵌套 + 数组 + 大小写变体）', () => {
+  it('敏感字段脱敏（顶层 + 嵌套 + 数组 + 大小写变体）；流 key 不误伤', () => {
     const lines: string[] = [];
     const logger = createLogger('info', (l) => lines.push(l));
     logger.info('boot', {
       authSecret: 's3cr3t',
       httpPort: 8000,
+      key: 'live/stream1',
       user: { apiKey: 'k1', name: 'dev', roles: [{ token: 't1' }, { id: 7 }] },
       Authorization: 'Bearer xyz',
     });
     const parsed = JSON.parse(lines[0]!);
     expect(parsed.authSecret).toBe('***');
     expect(parsed.httpPort).toBe(8000);
+    expect(parsed.key).toBe('live/stream1');
     expect(parsed.user.apiKey).toBe('***');
     expect(parsed.user.name).toBe('dev');
     expect(parsed.user.roles[0].token).toBe('***');

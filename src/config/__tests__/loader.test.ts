@@ -13,6 +13,7 @@ describe('loadConfig', () => {
       hlsWindowSize: 5,
       authSecret: 'dev-insecure-secret',
       logLevel: 'info',
+      mediaRoot: './media',
     });
   });
 
@@ -66,5 +67,12 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ NODE_ENV: 'test', RTMP_APP: '../etc' })).toThrow(ConfigError);
     expect(() => loadConfig({ NODE_ENV: 'test', RTMP_APP: 'a b' })).toThrow(ConfigError);
     expect(loadConfig({ NODE_ENV: 'test', RTMP_APP: 'live_2' }).rtmpApp).toBe('live_2');
+  });
+
+  it('MEDIA_ROOT 默认 ./media，含 ".." 路径段拒绝', () => {
+    expect(loadConfig({ NODE_ENV: 'test' }).mediaRoot).toBe('./media');
+    expect(() => loadConfig({ NODE_ENV: 'test', MEDIA_ROOT: '../outside' })).toThrow(ConfigError);
+    expect(() => loadConfig({ NODE_ENV: 'test', MEDIA_ROOT: 'a/../b' })).toThrow(ConfigError);
+    expect(loadConfig({ NODE_ENV: 'test', MEDIA_ROOT: './media-live' }).mediaRoot).toBe('./media-live');
   });
 });

@@ -12,6 +12,8 @@ export interface AppConfig {
   readonly hlsWindowSize: number;
   readonly authSecret: string;
   readonly logLevel: 'debug' | 'info' | 'warn' | 'error';
+  /** HLS 分片媒体根目录（NMS http mediaroot） */
+  readonly mediaRoot: string;
 }
 
 export class ConfigError extends Error {
@@ -67,14 +69,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (!/^[A-Za-z0-9_-]+$/.test(rtmpApp)) {
     throw new ConfigError('RTMP_APP', `仅允许字母/数字/_/-，得到 "${rtmpApp}"`);
   }
+  const mediaRoot = readString(env, 'MEDIA_ROOT', './media');
+  if (/(?:^|[\\/])\.\.(?:[\\/]|$)/.test(mediaRoot)) {
+    throw new ConfigError('MEDIA_ROOT', `不允许包含 ".." 路径段，得到 "${mediaRoot}"`);
+  }
   return {
     nodeEnv,
     httpPort: readInt(env, 'HTTP_PORT', 8000, 1, 65535),
     rtmpPort: readInt(env, 'RTMP_PORT', 1935, 1, 65535),
-    rtmpApp: readString(env, 'RTMP_APP', 'live'),
+    rtmpApp,
     hlsFragmentSec: readInt(env, 'HLS_FRAGMENT_SEC', 6, 1, 30),
     hlsWindowSize: readInt(env, 'HLS_WINDOW_SIZE', 5, 1, 60),
     authSecret,
     logLevel: readEnum<AppConfig['logLevel']>(env, 'LOG_LEVEL', LOG_LEVELS, 'info'),
+    mediaRoot,
   };
 }
