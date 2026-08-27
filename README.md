@@ -74,6 +74,7 @@ StreamServer/
 │   ├── lib/                # 日志、错误、工具
 │   └── __tests__/          # 测试
 ├── docs/                   # 规范与设计文档
+├── skills/                 # 团队 Skill（must-read / commit / code-review / api-design）
 ├── config/                 # 环境配置示例
 ├── README.md
 ├── ARCHITECTURE.md

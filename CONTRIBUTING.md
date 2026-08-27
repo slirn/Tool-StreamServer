@@ -94,3 +94,14 @@ docs: 补充快速开始示例
 - 互不依赖的任务用**并行子代理**；跨大量文件的 fan-out 用 **workflow**
 - 文件操作默认限制在 workspace，不越权写项目外文件
 - 收尾必须按 §8 DoD 逐项勾选，并给出变更文件清单
+
+## 10. 团队 Skill（规范的可执行化）
+
+以下 skill 源码在项目 `skills/` 目录（入库、可版本化），并安装到 `~\.claude\skills` 与 `~\.agents\skills` 全局生效；修改后需重新复制安装：
+
+| Skill | 用途 | 触发时机 |
+| --- | --- | --- |
+| `team-must-read` | 开工前必读规范清单 | 任何开发任务开始前 |
+| `team-commit` | Conventional Commits 强制 | 执行 git commit 时 |
+| `team-code-review` | 六维审查清单 + 结构化报告 | 审查代码 / PR 时 |
+| `team-api-design` | 接口命名 / 错误码 / 版本规范 | 设计或评审 API 时 |
