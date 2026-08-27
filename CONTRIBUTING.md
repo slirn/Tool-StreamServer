@@ -89,7 +89,7 @@ docs: 补充快速开始示例
 
 ## 9. DSH 协作纪律（agent 必读）
 
-- 每个任务开工前：先读 §1 规范文档，再进 **Plan 模式**产出方案 → 人工确认 → todo 分解
+- 每个任务开工前：先读 §1 规范文档，再进 **Plan 模式**按 [docs/PLAN-TEMPLATE.md](./docs/PLAN-TEMPLATE.md) 产出方案 → 人工确认 → todo 分解
 - 长命令（build / test / 打包）用**后台任务**，不空等
 - 互不依赖的任务用**并行子代理**；跨大量文件的 fan-out 用 **workflow**
 - 文件操作默认限制在 workspace，不越权写项目外文件
