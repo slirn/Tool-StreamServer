@@ -20,7 +20,8 @@
     "format:check": "prettier --check .",
     "skills:sync": "node scripts/sync-skills.mjs",
     "skills:check": "node scripts/sync-skills.mjs --check",
-    "skills:ci": "node scripts/sync-skills.mjs --ci"
+    "skills:ci": "node scripts/sync-skills.mjs --ci",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.5.0",
