@@ -13,11 +13,15 @@ export class MemoryStreamRegistry implements StreamRegistry {
     this.bus = bus ?? new MemoryStreamEventBus();
   }
 
+  /**
+   * 注册流；key 已存在时视为"宽限期内重连续传"：
+   * 刷新元数据并再次发出 publish 事件（egress 幂等，可安全重订），返回 false。
+   */
   publish(meta: StreamMeta): boolean {
-    if (this.streams.has(meta.key)) return false; // 重复推流拒绝（语义由单测固化）
+    const isResume = this.streams.has(meta.key);
     this.streams.set(meta.key, meta);
     this.bus.emitStream({ type: 'publish', meta });
-    return true;
+    return !isResume;
   }
 
   unpublish(key: StreamKey, reason: 'closed' | 'kicked' | 'error'): boolean {

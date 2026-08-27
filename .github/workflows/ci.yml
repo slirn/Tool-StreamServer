@@ -25,11 +25,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Test
-        run: npm test
-
+      # build 必须在 test 前：e2e 依赖 dist/ 产物（干净 checkout 上无残留）
       - name: Build
         run: npm run build
+
+      - name: Test
+        run: npm test
 
       - name: Commitlint (PR)
         if: github.event_name == 'pull_request'

@@ -91,13 +91,12 @@ describe.skipIf(!ffmpegAvailable)('M2 e2e：RTMP 推流 → HLS 拉流', () => {
 
     await new Promise<void>((resolve) => pusher.on('close', () => resolve()));
     // 断推后分片清理：NMS v4 有 30s publish 宽限期（断线重连续传），
-    // donePublish 在宽限期后触发 → egress 退订 → 目录删除。等待窗口需 > 30s。
+    // donePublish 在宽限期后触发 → egress 退订 → 目录删除。慢机器留足余量（60s）。
     await waitFor(() => {
       const dir = path.join(mediaRoot, APP, KEY);
-      if (!existsSync(dir)) return true;
-      return readdirSync(dir).length === 0;
-    }, 45_000, 1000);
-    expect(true).toBe(true);
+      return !existsSync(dir) || readdirSync(dir).length === 0;
+    }, 60_000, 1000);
+    expect(existsSync(path.join(mediaRoot, APP, KEY))).toBe(false); // 目录确实被清
   }, 120_000);
 });
 

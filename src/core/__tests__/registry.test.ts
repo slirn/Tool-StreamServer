@@ -26,16 +26,16 @@ describe('MemoryStreamRegistry', () => {
     expect(onPublish).toHaveBeenCalledWith(expect.objectContaining({ type: 'publish' }));
   });
 
-  it('重复 streamKey 拒绝第二次 publish，不发事件', () => {
+  it('重复 streamKey 视为重连续传：返回 false 但刷新元数据并再发事件', () => {
     const bus = makeBus();
     const reg = new MemoryStreamRegistry(bus);
     const onPublish = vi.fn();
     bus.on(STREAM_EVENTS.publish, onPublish);
 
     expect(reg.publish(meta('live/a', 1))).toBe(true);
-    expect(reg.publish(meta('live/a', 2))).toBe(false);
-    expect(onPublish).toHaveBeenCalledTimes(1);
-    expect(reg.get('live/a')!.startedAt).toBe(1); // 首次元数据不被覆盖
+    expect(reg.publish(meta('live/a', 2))).toBe(false); // 宽限期重连：续期而非拒绝
+    expect(onPublish).toHaveBeenCalledTimes(2); // 两次都发事件（egress 幂等重订）
+    expect(reg.get('live/a')!.startedAt).toBe(2); // 元数据已刷新
   });
 
   it('unpublish 删除流并携带原因', () => {

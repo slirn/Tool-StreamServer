@@ -95,4 +95,16 @@ describe('架构守护：依赖方向（ARCHITECTURE §4）', () => {
     }
     expect(violations, violations.join('\n')).toEqual([]);
   });
+
+  it('第三方包白名单：node-media-server 仅允许出现在 ingress/nms-server.ts', () => {
+    const violations: string[] = [];
+    for (const f of files) {
+      for (const spec of importsOf(f)) {
+        if (spec.startsWith('.') || spec.startsWith('node:')) continue;
+        if (spec === 'node-media-server' && rel(f) === 'ingress/nms-server.ts') continue;
+        violations.push(`${rel(f)} -> ${spec}`);
+      }
+    }
+    expect(violations, violations.join('\n')).toEqual([]);
+  });
 });
