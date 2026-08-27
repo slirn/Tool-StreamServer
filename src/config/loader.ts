@@ -14,6 +14,12 @@ export interface AppConfig {
   readonly logLevel: 'debug' | 'info' | 'warn' | 'error';
   /** HLS 分片媒体根目录（NMS http mediaroot） */
   readonly mediaRoot: string;
+  /** 管理 API 端口（与拉流端口分离，ADR-008） */
+  readonly apiPort: number;
+  /** 管理 API 令牌；未配置时写操作拒绝（只读模式） */
+  readonly adminToken?: string;
+  /** 录像根目录 */
+  readonly recordsRoot: string;
 }
 
 export class ConfigError extends Error {
@@ -73,6 +79,20 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (/(?:^|[\\/])\.\.(?:[\\/]|$)/.test(mediaRoot)) {
     throw new ConfigError('MEDIA_ROOT', `不允许包含 ".." 路径段，得到 "${mediaRoot}"`);
   }
+  const recordsRoot = readString(env, 'RECORDS_ROOT', './records');
+  if (/(?:^|[\\/])\.\.(?:[\\/]|$)/.test(recordsRoot)) {
+    throw new ConfigError('RECORDS_ROOT', `不允许包含 ".." 路径段，得到 "${recordsRoot}"`);
+  }
+  const adminTokenRaw = readString(env, 'ADMIN_TOKEN', '');
+  const adminToken = adminTokenRaw === '' ? undefined : adminTokenRaw;
+  if (nodeEnv === 'production') {
+    if (adminToken === undefined) {
+      throw new ConfigError('ADMIN_TOKEN', 'production 环境必须设置（否则管理写操作不可用）');
+    }
+    if (adminToken.trim().length < 8) {
+      throw new ConfigError('ADMIN_TOKEN', '长度不足（trim 后至少 8 字符）');
+    }
+  }
   return {
     nodeEnv,
     httpPort: readInt(env, 'HTTP_PORT', 8000, 1, 65535),
@@ -83,5 +103,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     authSecret,
     logLevel: readEnum<AppConfig['logLevel']>(env, 'LOG_LEVEL', LOG_LEVELS, 'info'),
     mediaRoot,
+    apiPort: readInt(env, 'API_PORT', 8001, 1, 65535),
+    adminToken,
+    recordsRoot,
   };
 }

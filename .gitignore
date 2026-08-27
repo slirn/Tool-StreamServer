@@ -8,8 +8,12 @@ coverage/
 # HLS 媒体分片（NMS mediaroot）
 media/
 
+# 录像输出
+records/
+
 # NMS LightweightStore（运行时持久化目录）
 data/
+.nms-data/
 
 # 日志
 *.log
