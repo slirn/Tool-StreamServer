@@ -14,7 +14,18 @@ describe('loadConfig', () => {
       authSecret: 'dev-insecure-secret',
       logLevel: 'info',
       mediaRoot: './media',
+      apiPort: 8001,
+      adminToken: undefined,
+      recordsRoot: './records',
     });
+  });
+
+  it('API_PORT / ADMIN_TOKEN / RECORDS_ROOT 配置与校验', () => {
+    const c = loadConfig({ NODE_ENV: 'test', API_PORT: '9001', ADMIN_TOKEN: 'tok-123', RECORDS_ROOT: './rec' });
+    expect(c.apiPort).toBe(9001);
+    expect(c.adminToken).toBe('tok-123');
+    expect(c.recordsRoot).toBe('./rec');
+    expect(() => loadConfig({ NODE_ENV: 'test', RECORDS_ROOT: '../up' })).toThrow(ConfigError);
   });
 
   it('环境变量覆盖默认值（含空串回落默认）', () => {
@@ -54,12 +65,19 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ NODE_ENV: 'staging' })).toThrow(ConfigError);
   });
 
-  it('生产环境 AUTH_SECRET 强制（缺失 / 弱值 / 空白均拒绝）', () => {
+  it('生产环境 AUTH_SECRET 与 ADMIN_TOKEN 强制', () => {
     expect(() => loadConfig({ NODE_ENV: 'production' })).toThrow(/AUTH_SECRET/);
     expect(() => loadConfig({ NODE_ENV: 'production', AUTH_SECRET: 'short' })).toThrow(/16/);
     expect(() => loadConfig({ NODE_ENV: 'production', AUTH_SECRET: '                ' })).toThrow(/16/);
     expect(() =>
       loadConfig({ NODE_ENV: 'production', AUTH_SECRET: 'a-strong-enough-secret!!' }),
+    ).toThrow(/ADMIN_TOKEN/); // 生产还要求 ADMIN_TOKEN
+    expect(() =>
+      loadConfig({
+        NODE_ENV: 'production',
+        AUTH_SECRET: 'a-strong-enough-secret!!',
+        ADMIN_TOKEN: 'admin-tok',
+      }),
     ).not.toThrow();
   });
 

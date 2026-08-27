@@ -47,7 +47,7 @@ export function verifyStreamSign(
 ): VerifyResult {
   const expireRaw = query?.['expire'];
   if (expireRaw === undefined || expireRaw === '') return { ok: false, reason: 'missing-expire' };
-  if (!/^\d+$/.test(expireRaw)) return { ok: false, reason: 'invalid-expire' };
+  if (!/^\d{1,10}$/.test(expireRaw)) return { ok: false, reason: 'invalid-expire' }; // 限位数：防溢出为 Infinity 恒"未过期"
   const expire = Number(expireRaw);
   if (expire < nowUnixSec) return { ok: false, reason: 'expired' };
   const sign = query?.['sign'];

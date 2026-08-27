@@ -4,5 +4,6 @@
 *.jpeg binary
 *.gif binary
 *.mp4 binary
-*.ts binary
+# MPEG-TS 媒体分片（限定 media/ 下，避免波及源码 .ts）
+media/**/*.ts binary
 *.flv binary

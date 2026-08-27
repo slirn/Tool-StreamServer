@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import type { StreamEventBus, StreamKey } from '../core/types.js';
 import { STREAM_EVENTS } from '../core/types.js';
+import { killGracefully } from './record-ffmpeg.js';
 import type { Logger } from '../lib/logger.js';
 import type { Egress } from './types.js';
 
@@ -110,11 +111,10 @@ export class HlsEgress implements Egress {
   private async killFfmpeg(key: StreamKey): Promise<void> {
     const ffmpeg = this.ffmpegByStream.get(key);
     if (!ffmpeg) return;
-    const exited = new Promise<void>((resolve) => ffmpeg.once('close', () => resolve()));
-    ffmpeg.kill('SIGKILL');
-    await Promise.race([exited, sleep(8_000)]);
+    // 优雅退出优先（Linux 下 ffmpeg 收 SIGINT 会写完尾部/ENDLIST）；超时 SIGKILL 兜底
+    await killGracefully(ffmpeg);
     // 注意：不在此处删除 map 条目——由 'close' 事件统一删除。
-    // 若 8s 后进程仍活着（罕见），保留条目可防止同 key 双开 ffmpeg 竞争写文件。
+    // 若兜底后进程仍活着（罕见），保留条目可防止同 key 双开 ffmpeg 竞争写文件。
   }
 
   /**

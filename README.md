@@ -46,16 +46,27 @@ npm run lint
 npm run format
 ```
 
-推流与拉流示例：
+推流与拉流示例（**M3 起推流必须带签名**）：
 
 ```bash
-# 推流（OBS 或 ffmpeg；关键帧间隔建议 2s，HLS 切片依赖关键帧）
-ffmpeg -re -i input.mp4 -c copy -g 60 -f flv rtmp://localhost:1935/live/stream1
+# 1. 生成带签名的推流 URL（默认 600s 有效，secret 取 AUTH_SECRET）
+node scripts/sign-url.mjs /live/stream1 600
+# 输出：rtmp://localhost:1935/live/stream1?expire=1780000000&sign=<hmac-sha256>
+
+# 2. 推流（关键帧间隔建议 2s，HLS 切片依赖关键帧）
+ffmpeg -re -i input.mp4 -c copy -g 60 -f flv "rtmp://localhost:1935/live/stream1?expire=...&sign=..."
 
 # 拉流
 # HLS:       http://localhost:8000/hls/live/stream1/index.m3u8
 # HTTP-FLV:  http://localhost:8000/live/stream1.flv
+
+# 管理 API（默认 8001，写操作需 x-admin-token）
+curl http://localhost:8001/healthz
+curl http://localhost:8001/api/v1/streams
+curl -X DELETE -H "x-admin-token: <ADMIN_TOKEN>" http://localhost:8001/api/v1/streams/live%2Fstream1
 ```
+
+签名规则：`sign = HMAC-SHA256(AUTH_SECRET, "<streamPath>-<expire>")`，`expire` 为 Unix 秒；过期/缺失/篡改的推流会被直接断开。
 
 > 端口等配置在 `config/` 下，v1 以环境变量 + 配置文件驱动（见 ARCHITECTURE §6）。
 

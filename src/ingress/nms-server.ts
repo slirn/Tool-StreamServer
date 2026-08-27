@@ -68,9 +68,10 @@ export class NmsIngress implements Ingress {
         const stream = raw as unknown as NmsSession;
         const key = this.extractKey(stream?.streamPath);
         if (key === undefined) {
-          logger.warn('postPublish with invalid streamPath, ignored', {
+          logger.warn('postPublish with invalid streamPath, closing session', {
             streamPath: typeof stream?.streamPath,
           });
+          safeClose(stream); // 无效会话不注册，也不留在 NMS（review minor#11）
           return;
         }
         // M3 鉴权门控（ADR-007）：NMS 内置仅支持 MD5 签名，此处按已批准方案自校验 HMAC-SHA256，
@@ -83,6 +84,20 @@ export class NmsIngress implements Ingress {
               stream.close();
               return;
             }
+            // 并发第二推流者防御：key 已有会话时——
+            // - 同 IP：NMS 宽限期 resume（会话对象已转移），安全覆盖
+            // - 异 IP：正常接管路径会先经 donePublish 清表；若仍有旧条目，
+            //   视为并发冲突：拒绝新会话，保持旧流不受污染（review major#2）
+            const existing = this.publishSessions.get(key);
+            if (existing && existing.ip !== undefined && existing.ip !== (stream.ip ?? 'unknown')) {
+              logger.warn('duplicate publish rejected: another publisher active', {
+                key,
+                existing: existing.ip,
+                rejected: stream.ip ?? 'unknown',
+              });
+              stream.close();
+              return;
+            }
             this.publishSessions.set(key, stream);
             const ok = registry.publish({
               key,
@@ -92,7 +107,11 @@ export class NmsIngress implements Ingress {
             if (ok) logger.info('stream published', { key, publisher: stream.ip ?? 'unknown' });
             else logger.info('stream resumed', { key }); // 30s 宽限期内重连：registry 已续期并发事件
           })
-          .catch((err) => logger.error('auth verify failed', { key, detail: errorMessage(err) }));
+          .catch((err) => {
+            // 鉴权流程自身失败也必须关闭会话：否则产生"未注册但可拉流"的无管理流（review major#1）
+            logger.error('auth verify failed, closing session', { key, detail: errorMessage(err) });
+            stream.close();
+          });
       } catch (err) {
         logger.error('postPublish handler failed', { detail: errorMessage(err) });
       }
@@ -109,25 +128,37 @@ export class NmsIngress implements Ingress {
         logger.error('donePublish handler failed', { detail: errorMessage(err) });
       }
     });
-    // 拉流生命周期（观测用；过滤本机 egress ffmpeg 产生的回环连接噪音）
+    // 拉流生命周期（观测用；过滤本机 egress ffmpeg 产生的回环连接噪音——NMS 的 ip 含端口）
     this.nms.on('postPlay', (raw) => {
-      const stream = raw as unknown as NmsSession;
-      if (isLoopback(stream?.ip)) return;
-      const key = this.extractKey(stream?.streamPath);
-      if (key !== undefined) bus.emitStream({ type: 'subscribe', key, subscriber: stream.ip ?? 'unknown' });
+      try {
+        const stream = raw as unknown as NmsSession;
+        if (isLoopback(stream?.ip)) return;
+        const key = this.extractKey(stream?.streamPath);
+        if (key !== undefined) bus.emitStream({ type: 'subscribe', key, subscriber: stream.ip ?? 'unknown' });
+      } catch (err) {
+        logger.error('postPlay handler failed', { detail: errorMessage(err) });
+      }
     });
     this.nms.on('donePlay', (raw) => {
-      const stream = raw as unknown as NmsSession;
-      if (isLoopback(stream?.ip)) return;
-      const key = this.extractKey(stream?.streamPath);
-      if (key !== undefined) bus.emitStream({ type: 'unsubscribe', key, subscriber: stream.ip ?? 'unknown' });
+      try {
+        const stream = raw as unknown as NmsSession;
+        if (isLoopback(stream?.ip)) return;
+        const key = this.extractKey(stream?.streamPath);
+        if (key !== undefined) bus.emitStream({ type: 'unsubscribe', key, subscriber: stream.ip ?? 'unknown' });
+      } catch (err) {
+        logger.error('donePlay handler failed', { detail: errorMessage(err) });
+      }
     });
     // 踢流（M4 经 registry.unpublish(key,'kicked') 触发）：关闭对应 RTMP 推流会话
     bus.on(STREAM_EVENTS.unpublish, (e) => {
       if (e.type !== 'unpublish' || e.reason !== 'kicked') return;
       const session = this.publishSessions.get(e.key);
       if (session) {
-        session.close();
+        try {
+          session.close();
+        } catch (err) {
+          logger.error('kick close failed', { key: e.key, detail: errorMessage(err) });
+        }
         this.publishSessions.delete(e.key);
         logger.info('stream kicked', { key: e.key });
       }
@@ -177,8 +208,19 @@ export class NmsIngress implements Ingress {
   }
 }
 
-function isLoopback(ip: string | undefined): boolean {
+/** NMS 的 session.ip 形如 "127.0.0.1:54321" / "::ffff:127.0.0.1:54321"（含端口） */
+function isLoopback(ipWithPort: string | undefined): boolean {
+  if (ipWithPort === undefined) return false;
+  const ip = ipWithPort.replace(/:\d+$/, ''); // 去尾部端口
   return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
+
+function safeClose(session: NmsSession | undefined): void {
+  try {
+    session?.close();
+  } catch {
+    /* 尽力而为 */
+  }
 }
 
 function errorMessage(err: unknown): string {
