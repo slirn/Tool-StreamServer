@@ -31,6 +31,8 @@ describe('verifyStreamSign 拒绝路径', () => {
     expect(verifyStreamSign(SECRET, PATH, {}, NOW).reason).toBe('missing-expire');
     expect(verifyStreamSign(SECRET, PATH, { expire: 'abc' }, NOW).reason).toBe('invalid-expire');
     expect(verifyStreamSign(SECRET, PATH, { expire: '-1' }, NOW).reason).toBe('invalid-expire');
+    // 超长数字（>10 位）会溢出为 Infinity 恒"未过期"——必须拒绝（回归用例）
+    expect(verifyStreamSign(SECRET, PATH, { expire: '99999999999' }, NOW).reason).toBe('invalid-expire');
   });
 
   it('过期拒绝（边界：等于当前时间视为过期）', () => {

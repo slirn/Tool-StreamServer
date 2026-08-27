@@ -2,7 +2,7 @@
 
 流媒体服务端应用 —— 基于 **Node.js + TypeScript** 的直播媒体服务。v1 覆盖经典直播链路：**RTMP 推流 → 流管理/转发表 → HLS / HTTP-FLV 拉流**，并在此基础上提供推流鉴权、录制等业务能力。
 
-> **当前状态：M1 工程骨架已完成。** 分层接口骨架、配置加载（fail-fast）、日志脱敏、架构守护测试、husky 双钩子（commit-msg + pre-commit skills:check）已就绪；媒体业务逻辑自 M2 开始。开发前请先阅读 [ARCHITECTURE.md](./ARCHITECTURE.md) 与 [CONTRIBUTING.md](./CONTRIBUTING.md)。
+> **当前状态：v0.1.0 全部里程碑（M1–M4）已完成。** 完整链路可用：RTMP 签名推流 → HLS/HTTP-FLV 拉流 → FLV 录制 → 管理 API（踢流/录制/健康检查）。47 个测试全绿（含 5 场景 e2e）。开发前请先阅读 [ARCHITECTURE.md](./ARCHITECTURE.md) 与 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
 ## 特性（v1 范围）
 
@@ -117,5 +117,5 @@ StreamServer/
 
 - [x] M1：工程骨架（规范落地 + 依赖安装 + CI 流水线）——已完成：src 分层骨架 + 配置加载 + 日志脱敏 + 架构守护测试 + husky 双钩子
 - [x] M2：RTMP 推流接入与基础 HLS 拉流——已完成：NMS 4.3.2 适配 + egress ffmpeg 切片（ADR-006）+ e2e 集成测试
-- [ ] M3：HTTP-FLV、流生命周期事件、鉴权
-- [ ] M4：录制、管理 API、观测（日志 / 指标）
+- [x] M3：HTTP-FLV、流生命周期事件、鉴权——已完成：HMAC 推流鉴权（ADR-007）、流事件、踢流会话管理
+- [x] M4：录制、管理 API、观测——已完成：FLV 录制、管理 API 最小集（ADR-008）、健康检查

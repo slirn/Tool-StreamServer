@@ -12,6 +12,7 @@ import type { Ingress, IngressConfig } from './types.js';
 import type { StreamEventBus, StreamKey, StreamRegistry } from '../core/types.js';
 import { STREAM_EVENTS } from '../core/types.js';
 import type { AuthPolicy } from '../auth/types.js';
+import { addressOf } from '../lib/patterns.js';
 import type { Logger } from '../lib/logger.js';
 
 export interface NmsIngressOptions {
@@ -85,15 +86,16 @@ export class NmsIngress implements Ingress {
               return;
             }
             // 并发第二推流者防御：key 已有会话时——
-            // - 同 IP：NMS 宽限期 resume（会话对象已转移），安全覆盖
-            // - 异 IP：正常接管路径会先经 donePublish 清表；若仍有旧条目，
+            // - 同地址（剥端口后）：NMS 宽限期 resume（会话对象已转移），安全覆盖
+            // - 异地址：正常接管路径会先经 donePublish 清表；若仍有旧条目，
             //   视为并发冲突：拒绝新会话，保持旧流不受污染（review major#2）
+            // 注意必须剥端口比较：NMS 的 ip 含临时端口，同客户端重连端口必不同
             const existing = this.publishSessions.get(key);
-            if (existing && existing.ip !== undefined && existing.ip !== (stream.ip ?? 'unknown')) {
+            if (existing && addressOf(existing.ip) !== addressOf(stream.ip) && addressOf(stream.ip) !== '') {
               logger.warn('duplicate publish rejected: another publisher active', {
                 key,
-                existing: existing.ip,
-                rejected: stream.ip ?? 'unknown',
+                existing: addressOf(existing.ip),
+                rejected: addressOf(stream.ip),
               });
               stream.close();
               return;
@@ -102,9 +104,9 @@ export class NmsIngress implements Ingress {
             const ok = registry.publish({
               key,
               startedAt: Date.now(),
-              publisher: stream.ip ?? 'unknown',
+              publisher: addressOf(stream.ip) || 'unknown',
             });
-            if (ok) logger.info('stream published', { key, publisher: stream.ip ?? 'unknown' });
+            if (ok) logger.info('stream published', { key, publisher: addressOf(stream.ip) || 'unknown' });
             else logger.info('stream resumed', { key }); // 30s 宽限期内重连：registry 已续期并发事件
           })
           .catch((err) => {

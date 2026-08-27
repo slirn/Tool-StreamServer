@@ -85,8 +85,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   }
   const adminTokenRaw = readString(env, 'ADMIN_TOKEN', '');
   const adminToken = adminTokenRaw === '' ? undefined : adminTokenRaw;
-  if (nodeEnv === 'production' && adminToken === undefined) {
-    throw new ConfigError('ADMIN_TOKEN', 'production 环境必须设置（否则管理写操作不可用）');
+  if (nodeEnv === 'production') {
+    if (adminToken === undefined) {
+      throw new ConfigError('ADMIN_TOKEN', 'production 环境必须设置（否则管理写操作不可用）');
+    }
+    if (adminToken.trim().length < 8) {
+      throw new ConfigError('ADMIN_TOKEN', '长度不足（trim 后至少 8 字符）');
+    }
   }
   return {
     nodeEnv,

@@ -7,7 +7,8 @@ import { existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import type { StreamEventBus, StreamKey } from '../core/types.js';
 import { STREAM_EVENTS } from '../core/types.js';
-import { killGracefully } from './record-ffmpeg.js';
+import { ffmpegExecutable, killGracefully, sleep } from '../lib/ffmpeg.js';
+import { KEY_PATTERN } from '../lib/patterns.js';
 import type { Logger } from '../lib/logger.js';
 import type { Egress } from './types.js';
 
@@ -23,8 +24,8 @@ export interface HlsEgressOptions {
   readonly logger: Logger;
 }
 
-/** 合法 streamKey：段间以 / 分隔，每段限字母数字下划线连字符（纵深防御：不依赖 NMS 校验） */
-const KEY_PATTERN = /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/;
+/** 单机最大并发切片进程（防资源耗尽）；默认 32 */
+const DEFAULT_MAX_CONCURRENT = 32;
 
 export class HlsEgress implements Egress {
   private readonly ffmpegByStream = new Map<StreamKey, ChildProcess>();
@@ -182,7 +183,6 @@ const PUBLISH_SETTLE_MS = 2_000;
 const MAX_SPAWN_ATTEMPTS = 3;
 const RETRY_BACKOFF_MS = 500;
 const FIRST_SEGMENT_TIMEOUT_MS = 5_000;
-const DEFAULT_MAX_CONCURRENT = 32;
 
 function isNonEmpty(file: string): boolean {
   try {
@@ -190,14 +190,6 @@ function isNonEmpty(file: string): boolean {
   } catch {
     return false;
   }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function ffmpegExecutable(): string {
-  return process.env['FFMPEG_PATH'] ?? 'ffmpeg';
 }
 
 function errorMessage(err: unknown): string {

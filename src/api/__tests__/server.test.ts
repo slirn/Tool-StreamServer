@@ -8,7 +8,7 @@ function makeDeps(overrides: Partial<AdminApiDeps> = {}): AdminApiDeps {
     listRecords: () => [{ name: 'live~a_20260827-120000.flv', sizeBytes: 10, startedAt: '2026-08-27T04:00:00Z' }],
     startRecord: vi.fn(() => true),
     stopRecord: vi.fn(async () => true),
-    removeRecord: vi.fn(() => true),
+    removeRecord: vi.fn(async () => true),
     ...overrides,
   };
 }
@@ -119,5 +119,51 @@ describe('Admin API 契约', () => {
   it('未路由 → 404；方法不符 → 404', async () => {
     expect((await get('/api/v1/none')).status).toBe(404);
     expect((await post('/api/v1/streams', {}, 'secret-tok')).status).toBe(404);
+  });
+
+  it('畸形请求 URL → 400/40001（不击穿进程，review blocker 回归）', async () => {
+    // 原始 socket 发畸形请求行（fetch 无法构造），验证服务存活
+    const net = await import('node:net');
+    const survived = await new Promise<boolean>((resolve) => {
+      const u = new URL(base);
+      const sock = net.connect(Number(u.port), u.hostname, () => {
+        sock.write('GET http://1.2.3.4:99999/ HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n');
+      });
+      let data = '';
+      sock.on('data', (c) => (data += c.toString()));
+      sock.on('close', () => resolve(data.includes('40001')));
+      sock.on('error', () => resolve(false));
+      setTimeout(() => { sock.destroy(); resolve(data.includes('40001')); }, 3000);
+    });
+    expect(survived).toBe(true);
+    // 服务仍活着
+    expect((await get('/healthz')).status).toBe(200);
+  });
+
+  it('非法 JSON body → 400/40001（非 500）', async () => {
+    const res = await fetch(base + '/api/v1/records', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-admin-token': 'secret-tok' },
+      body: '{not-json',
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe(40001);
+  });
+
+  it('POST /records 流不存在 → 404/40401', async () => {
+    const deps404s = makeDeps({ listStreams: () => [] });
+    const api5 = createAdminApi({ deps: deps404s, adminToken: 'secret-tok', logger: console });
+    const srv5 = await listenAdminApi(api5.handle, 0);
+    try {
+      const res = await fetch(`http://127.0.0.1:${srv5.port}/api/v1/records`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-admin-token': 'secret-tok' },
+        body: JSON.stringify({ key: 'live/none' }),
+      });
+      expect(res.status).toBe(404);
+      expect((await res.json()).code).toBe(40401);
+    } finally {
+      await srv5.close();
+    }
   });
 });

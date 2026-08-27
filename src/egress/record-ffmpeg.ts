@@ -7,6 +7,8 @@ import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import type { StreamEventBus, StreamKey } from '../core/types.js';
 import { STREAM_EVENTS } from '../core/types.js';
+import { ffmpegExecutable, killGracefully } from '../lib/ffmpeg.js';
+import { KEY_PATTERN, RECORD_NAME_PATTERN } from '../lib/patterns.js';
 import type { Logger } from '../lib/logger.js';
 
 export interface RecordItem {
@@ -23,13 +25,15 @@ export interface FlvRecorderOptions {
   readonly logger: Logger;
 }
 
-/** 录像文件名：<key 段以 ~ 连接>_<时间戳>.flv；字符集收紧防路径攻击 */
-const NAME_PATTERN = /^[A-Za-z0-9_-]+(~[A-Za-z0-9_-]+)*_\d{8}-\d{6}\.flv$/;
-const KEY_PATTERN = /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/;
 const DEFAULT_MAX_CONCURRENT = 16;
 
+interface ActiveRecord {
+  readonly ffmpeg: ChildProcess;
+  readonly file: string;
+}
+
 export class FlvRecorder {
-  private readonly ffmpegByStream = new Map<StreamKey, ChildProcess>();
+  private readonly active = new Map<StreamKey, ActiveRecord>();
   private readonly opts: FlvRecorderOptions;
   private started = false;
 
@@ -43,7 +47,7 @@ export class FlvRecorder {
     // 流结束（宽限期后）自动停录，防孤儿 ffmpeg
     this.opts.bus.on(STREAM_EVENTS.unpublish, (e) => {
       if (e.type === 'unpublish') {
-        this.stop(e.key).catch((err) =>
+        this.stopRecord(e.key).catch((err) =>
           this.opts.logger.error('auto stop record failed', { key: e.key, detail: errorMessage(err) }),
         );
       }
@@ -53,11 +57,11 @@ export class FlvRecorder {
 
   /** 开始录制一路流；已在录/流 key 非法/超并发 返回 false */
   startRecord(key: StreamKey): boolean {
-    if (this.ffmpegByStream.has(key)) return false;
+    if (this.active.has(key)) return false;
     if (!KEY_PATTERN.test(key)) return false;
     const max = this.opts.maxConcurrent ?? DEFAULT_MAX_CONCURRENT;
-    if (this.ffmpegByStream.size >= max) {
-      this.opts.logger.error('record concurrency limit reached', { key, active: this.ffmpegByStream.size, max });
+    if (this.active.size >= max) {
+      this.opts.logger.error('record concurrency limit reached', { key, active: this.active.size, max });
       return false;
     }
     const file = path.join(this.opts.recordsRoot, recordName(key));
@@ -77,85 +81,72 @@ export class FlvRecorder {
     });
     ffmpeg.on('error', (err) => this.opts.logger.error('ffmpeg record spawn failed', { key, detail: err.message }));
     ffmpeg.on('close', () => {
-      this.ffmpegByStream.delete(key); // 条目生命周期唯一归属：close 事件
+      this.active.delete(key); // 条目生命周期唯一归属：close 事件
       this.opts.logger.info('ffmpeg record exited', { key });
     });
-    this.ffmpegByStream.set(key, ffmpeg);
+    this.active.set(key, { ffmpeg, file });
     this.opts.logger.info('record started', { key, file });
     return true;
   }
 
   /** 停止录制（未在录返回 false） */
   async stopRecord(key: StreamKey): Promise<boolean> {
-    const ffmpeg = this.ffmpegByStream.get(key);
-    if (!ffmpeg) return false;
-    await killGracefully(ffmpeg);
+    const rec = this.active.get(key);
+    if (!rec) return false;
+    await killGracefully(rec.ffmpeg);
     return true;
   }
 
-  /** 列出已完成与进行中的录像 */
+  /** 列出已完成与进行中的录像（逐条容错：竞态删除的条目跳过） */
   list(): readonly RecordItem[] {
     if (!existsSync(this.opts.recordsRoot)) return [];
-    return readdirSync(this.opts.recordsRoot)
-      .filter((n) => NAME_PATTERN.test(n))
-      .map((n) => {
+    const out: RecordItem[] = [];
+    for (const n of readdirSync(this.opts.recordsRoot)) {
+      if (!RECORD_NAME_PATTERN.test(n)) continue;
+      try {
         const st = statSync(path.join(this.opts.recordsRoot, n));
-        return { name: n, sizeBytes: st.size, startedAt: st.birthtime.toISOString() };
-      })
-      .sort((a, b) => b.name.localeCompare(a.name));
+        out.push({ name: n, sizeBytes: st.size, startedAt: (st.birthtime ?? st.mtime).toISOString() });
+      } catch {
+        /* 条目在列出瞬间被删：跳过 */
+      }
+    }
+    return out.sort((a, b) => b.name.localeCompare(a.name));
   }
 
-  /** 删除录像（名称必须严格匹配白名单，防穿越） */
-  remove(name: string): boolean {
-    if (!NAME_PATTERN.test(name)) return false;
+  /**
+   * 删除录像（名称必须严格匹配白名单，防穿越）。
+   * 活动录制的文件会先停录再删（防 Windows EPERM / POSIX 孤儿 inode 泄漏）。
+   */
+  async remove(name: string): Promise<boolean> {
+    if (!RECORD_NAME_PATTERN.test(name)) return false;
     const file = path.join(this.opts.recordsRoot, name);
     if (!path.resolve(file).startsWith(path.resolve(this.opts.recordsRoot) + path.sep)) return false;
+    // 活动录制：先停
+    for (const [key, rec] of this.active) {
+      if (path.basename(rec.file) === name) {
+        await killGracefully(rec.ffmpeg);
+        this.active.delete(key);
+      }
+    }
     if (!existsSync(file)) return false;
     rmSync(file, { force: true });
     return true;
   }
 
-  /** 兼容命名（内部自动停录用） */
-  private async stop(key: StreamKey): Promise<void> {
-    await this.stopRecord(key);
-  }
-
+  /** 全部停录（并行，避免串行 kill 累积超时） */
   async stopAll(): Promise<void> {
-    for (const key of [...this.ffmpegByStream.keys()]) {
-      await this.stopRecord(key);
-    }
+    await Promise.all([...this.active.keys()].map((key) => this.stopRecord(key)));
   }
 }
 
 /** 录像文件名：live/key → live~key_20260827-153000.flv */
 export function recordName(key: string, now = new Date()): string {
   const p = key.replaceAll('/', '~');
-  const ts = [
-    String(now.getFullYear()).padStart(4, '0'),
-    String(now.getMonth() + 1).padStart(2, '0'),
-    String(now.getDate()).padStart(2, '0'),
-  ].join('') + '-' + [String(now.getHours()), String(now.getMinutes()), String(now.getSeconds())]
-    .map((s) => s.padStart(2, '0')).join('');
+  const ts =
+    [String(now.getFullYear()).padStart(4, '0'), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('') +
+    '-' +
+    [now.getHours(), now.getMinutes(), now.getSeconds()].map((s) => String(s).padStart(2, '0')).join('');
   return `${p}_${ts}.flv`;
-}
-
-/** 优雅退出：SIGINT（Linux 下 ffmpeg 会写完尾部）→ 2s 后 SIGKILL 兜底（Windows 信号为强制） */
-export async function killGracefully(ffmpeg: ChildProcess): Promise<void> {
-  const exited = new Promise<void>((resolve) => ffmpeg.once('close', () => resolve()));
-  ffmpeg.kill('SIGINT');
-  const graceful = await Promise.race([exited.then(() => true), sleep(2_000).then(() => false)]);
-  if (!graceful) {
-    ffmpeg.kill('SIGKILL');
-    await Promise.race([exited, sleep(5_000)]);
-  }
-}
-
-function ffmpegExecutable(): string {
-  return process.env['FFMPEG_PATH'] ?? 'ffmpeg';
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function errorMessage(err: unknown): string {

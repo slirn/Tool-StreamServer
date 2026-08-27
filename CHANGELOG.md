@@ -6,6 +6,9 @@
 
 ### Added
 
+- M4 录制与管理：FLV 录制（API 触发、并发上限 16、流结束自动停录、活动文件先停后删）、管理 API 最小集（streams/踢流/records/healthz，ADR-008）、写操作 x-admin-token 认证（未配置=只读）、生产强制 ADMIN_TOKEN、优雅关停并行化。
+- M3 推流鉴权（ADR-007）：HMAC-SHA256 URL 签名（expire+sign），失败关会话不注册；拉流 v1 开放；`scripts/sign-url.mjs` 生成签名 URL。
+- 流事件补全：subscribe/unsubscribe（过滤回环）+ 踢流会话管理（kicked 事件 → 关闭 RTMP 会话）。
 - M2 媒体链路：RTMP 推流接入（NMS 4.3.2 适配器）→ core 注册表/事件 → egress HLS（每流一个 ffmpeg，含就绪重试与宽限期清理）。
 - HLS 分片经 NMS 静态路由伺服：`http://host:8000/hls/<app>/<key>/index.m3u8`；HTTP-FLV：`/<app>/<key>.flv`。
 - 端到端集成测试（ffmpeg 门控）：推流 → m3u8 分片 ≥2 → 断推 30s 宽限后清理。

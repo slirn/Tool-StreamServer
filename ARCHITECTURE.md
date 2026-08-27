@@ -37,6 +37,8 @@ flowchart LR
 | ADR-004 | 业务层通过事件 / 抽象依赖媒体核心，禁止反向依赖 | 采纳 | 可测试、可替换实现（架构守护测试固化） |
 | ADR-005 | 单进程 + 内存转发表，v1 不做多节点 | 采纳 | 满足 v1 规模，避免过早分布式（MemoryStreamRegistry 落地） |
 | ADR-006 | HLS 由 egress 层实现：每路活跃流 spawn 一个 ffmpeg（RTMP 拉 → HLS 切片），经 NMS 静态路由伺服 | 采纳 | NMS v4 无内置 HLS；自建 egress 更贴合架构分层。代价：依赖外部 ffmpeg、关键帧间隔决定切片延迟；含就绪重试与宽限期清理 |
+| ADR-007 | 推流鉴权：HMAC-SHA256 URL 签名（expire+sign），在 ingress 的 postPublish 事件自校验，失败关会话不注册；拉流 v1 开放 | 采纳 | NMS v4 内置鉴权仅 MD5，不降级密码学强度；e2e 实测错误签名被拒。固有限制：鉴权失败到 close 间存在短暂广播窗口（NMS 方案固有） |
+| ADR-008 | 管理 API 独立端口（API_PORT），node:http 手写路由，能力全注入；写操作 x-admin-token 认证（未配置=只读）；FLV 录制由 egress 层 ffmpeg 实现 | 采纳 | NMS 的 express 无法第三方挂载，共用端口需违反依赖方向；分离本就是 §6 倾向。注入式设计使 api 模块零实现依赖 |
 
 > ADR 状态流转：提议 → 采纳 → 已替换。新决策按 §9 模板登记，先评审后采纳。
 
