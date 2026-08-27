@@ -15,8 +15,8 @@ export interface Logger {
   error(msg: string, extra?: Record<string, unknown>): void;
 }
 
-/** 脱敏：键名命中即遮蔽值；递归处理嵌套对象与数组 */
-const SENSITIVE_PATTERN = /secret|token|password|key|auth|bearer|cookie/i;
+/** 脱敏：键名命中即遮蔽值；递归处理嵌套对象与数组。注意不匹配裸 "key"（流 key 是观测核心字段） */
+const SENSITIVE_PATTERN = /secret|token|password|apikey|auth|bearer|cookie/i;
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);

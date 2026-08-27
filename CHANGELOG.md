@@ -6,6 +6,10 @@
 
 ### Added
 
+- M2 媒体链路：RTMP 推流接入（NMS 4.3.2 适配器）→ core 注册表/事件 → egress HLS（每流一个 ffmpeg，含就绪重试与宽限期清理）。
+- HLS 分片经 NMS 静态路由伺服：`http://host:8000/hls/<app>/<key>/index.m3u8`；HTTP-FLV：`/<app>/<key>.flv`。
+- 端到端集成测试（ffmpeg 门控）：推流 → m3u8 分片 ≥2 → 断推 30s 宽限后清理。
+- ADR-006：NMS v4 无内置 HLS，HLS 由 egress 层 ffmpeg 实现。
 - M1 工程骨架：`src/` 分层接口骨架（core / ingress / egress / api / auth / lib），核心抽象 `StreamRegistry` / `StreamEvent`。
 - 配置加载（ADR-003）：env + 默认值 + 启动校验，生产环境强制 `AUTH_SECRET`。
 - 结构化日志：级别过滤 + 敏感字段脱敏。
