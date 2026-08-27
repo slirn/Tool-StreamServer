@@ -22,6 +22,13 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Install ffmpeg (e2e 依赖：HLS 切片/推流由外部 ffmpeg 完成)
+        run: |
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y ffmpeg
+          fi
+          ffmpeg -version | head -1
+
       - name: Lint
         run: npm run lint
 

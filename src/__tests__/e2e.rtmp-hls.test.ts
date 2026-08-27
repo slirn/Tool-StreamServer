@@ -2,10 +2,10 @@
  * 端到端集成测试（ffmpeg 门控）：
  * - M2：推 RTMP → HLS m3u8 可拉 → 断推清理
  * - M3：无签名/错误签名推流被拒（不注册、推流端被断开）
- * 无 ffmpeg 时 skip 并说明原因（不静默）；CI（ubuntu 自带 ffmpeg）完整执行。
+ * 无 ffmpeg 时 skip 并说明原因（不静默）；CI 在 workflow 里显式安装 ffmpeg 后完整执行。
  * 依赖已构建的 dist/（先 npm run build）。
  */
-import { execFile, spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -27,12 +27,9 @@ function pushUrl(key: string, sign?: string, expire?: number): string {
 }
 
 function hasFfmpeg(): boolean {
-  try {
-    execFile(FFMPEG, ['-version']);
-    return true;
-  } catch {
-    return false;
-  }
+  // 必须用同步探测：execFile 异步报错捕不到，会恒返回 true（CI 无 ffmpeg 时曾因此误跑）
+  const probe = spawnSync(FFMPEG, ['-version'], { stdio: 'ignore', timeout: 5000 });
+  return probe.status === 0;
 }
 
 const ffmpegAvailable = hasFfmpeg();
