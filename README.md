@@ -2,7 +2,7 @@
 
 流媒体服务端应用 —— 基于 **Node.js + TypeScript** 的直播媒体服务。v1 覆盖经典直播链路：**RTMP 推流 → 流管理/转发表 → HLS / HTTP-FLV 拉流**，并在此基础上提供推流鉴权、录制等业务能力。
 
-> **当前状态：规范骨架阶段。** 项目规范（README / ARCHITECTURE / CONTRIBUTING / docs）与工程配置（eslint / prettier / commitlint / editorconfig）已就绪，业务代码尚未开始。开发前请先阅读 [ARCHITECTURE.md](./ARCHITECTURE.md) 与 [CONTRIBUTING.md](./CONTRIBUTING.md)。
+> **当前状态：M1 工程骨架已完成。** 分层接口骨架、配置加载（fail-fast）、日志脱敏、架构守护测试、husky 双钩子（commit-msg + pre-commit skills:check）已就绪；媒体业务逻辑自 M2 开始。开发前请先阅读 [ARCHITECTURE.md](./ARCHITECTURE.md) 与 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
 ## 特性（v1 范围）
 
@@ -31,11 +31,11 @@
 环境要求：Node.js >= 20.19。本机 node 已就绪，npm 位于 `D:\GreenApps\nvm\nodejs\npm.cmd`（不在 PATH 时用全路径调用）。
 
 ```bash
-# 1. 安装依赖（首次）
+# 1. 安装依赖（首次；prepare 脚本会自动接线 husky 钩子）
 npm install
 
-# 2. 初始化 husky 钩子（提交规范，一次性）
-npx husky init
+# 2. 同步团队 skill 到全局（首次提交前必做——pre-commit 会校验一致性）
+npm run skills:sync
 
 # 3. 启动开发服务（tsx watch，HTTP 端口 8000）
 npm run dev
@@ -104,7 +104,7 @@ StreamServer/
 
 ## 路线图
 
-- [ ] M1：工程骨架（规范落地 + 依赖安装 + CI 流水线）
+- [x] M1：工程骨架（规范落地 + 依赖安装 + CI 流水线）——已完成：src 分层骨架 + 配置加载 + 日志脱敏 + 架构守护测试 + husky 双钩子
 - [ ] M2：RTMP 推流接入与基础 HLS 拉流
 - [ ] M3：HTTP-FLV、流生命周期事件、鉴权
 - [ ] M4：录制、管理 API、观测（日志 / 指标）
