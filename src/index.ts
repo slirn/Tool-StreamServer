@@ -1,23 +1,26 @@
 /**
  * StreamServer 入口：装配与启动。
- * 装配链（ARCHITECTURE §5）：config → logger → core(registry/bus) → ingress(NMS 适配)。
- * M2 起 egress 的 HLS/HTTP-FLV 由 NMS http 服务承载（ADR-001：NMS 整体在 ingress 适配层）。
+ * 装配链（ARCHITECTURE §5）：config → logger → core(registry/bus) → auth → ingress(NMS) → egress(HLS)。
  */
 import { loadConfig } from './config/loader.js';
 import { createLogger } from './lib/logger.js';
 import { MemoryStreamRegistry } from './core/registry.js';
 import { NmsIngress } from './ingress/nms-server.js';
 import { HlsEgress } from './egress/hls-ffmpeg.js';
+import { HmacAuthPolicy } from './auth/policy.js';
 
 async function main(): Promise<void> {
   const config = loadConfig();
   const logger = createLogger(config.logLevel);
 
   const registry = new MemoryStreamRegistry();
+  const auth = new HmacAuthPolicy(config.authSecret);
 
   const ingress = new NmsIngress({
     ingress: { rtmpPort: config.rtmpPort, app: config.rtmpApp },
     registry,
+    bus: registry.events,
+    auth,
     httpPort: config.httpPort,
     mediaRoot: config.mediaRoot,
     logger,
@@ -36,7 +39,7 @@ async function main(): Promise<void> {
   await egress.start();
   logger.info('stream-server started', {
     nodeEnv: config.nodeEnv,
-    rtmp: `rtmp://localhost:${config.rtmpPort}/${config.rtmpApp}`,
+    rtmp: `rtmp://localhost:${config.rtmpPort}/${config.rtmpApp}（推流需签名，见 README）`,
     hls: `http://localhost:${config.httpPort}/hls/${config.rtmpApp}/<key>/index.m3u8`,
     flv: `http://localhost:${config.httpPort}/${config.rtmpApp}/<key>.flv`,
   });
