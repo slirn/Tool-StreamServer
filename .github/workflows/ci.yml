@@ -11,6 +11,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Skills structure check
+        run: node scripts/sync-skills.mjs --ci
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
