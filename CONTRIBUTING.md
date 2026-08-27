@@ -105,3 +105,11 @@ docs: 补充快速开始示例
 | `team-commit` | Conventional Commits 强制 | 执行 git commit 时 |
 | `team-code-review` | 六维审查清单 + 结构化报告 | 审查代码 / PR 时 |
 | `team-api-design` | 接口命名 / 错误码 / 版本规范 | 设计或评审 API 时 |
+
+### skill 校验的分工（已定案）
+
+| 检查 | 位置 | 拦截目标 |
+| --- | --- | --- |
+| `npm run skills:ci` | CI（`ci.yml`，checkout 后第一步） | 结构非法：缺 SKILL.md / front-matter 缺字段 / name 与目录不一致 |
+| `npm run skills:check` | **git pre-commit 钩子**（M1 husky 接线时挂上） | 改了 `skills/` 源码忘跑 `skills:sync`（此状态只存在于开发机，CI 原理上检测不到） |
+| `npm run skills:sync` | 改 skill 源码后的收尾动作（agent 自动执行） | — |
