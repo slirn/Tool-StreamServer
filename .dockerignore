@@ -1,0 +1,29 @@
+# 依赖与构建产物（镜像内重新构建）
+node_modules/
+dist/
+coverage/
+
+# 运行时数据（挂载卷，不进镜像）
+media/
+records/
+data/
+.nms-data/
+
+# 版本控制与 CI
+.git/
+.github/
+
+# 文档与工具（运行时不需要）
+docs/
+skills/
+scripts/
+*.md
+CHANGELOG.md
+LICENSE
+
+# 本地环境与编辑器
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/

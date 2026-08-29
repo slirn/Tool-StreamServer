@@ -2,7 +2,7 @@
 
 流媒体服务端应用 —— 基于 **Node.js + TypeScript** 的直播媒体服务。v1 覆盖经典直播链路：**RTMP 推流 → 流管理/转发表 → HLS / HTTP-FLV 拉流**，并在此基础上提供推流鉴权、录制等业务能力。
 
-> **当前状态：v0.1.0 全部里程碑（M1–M4）已完成。** 完整链路可用：RTMP 签名推流 → HLS/HTTP-FLV 拉流 → FLV 录制 → 管理 API（踢流/录制/健康检查）。47 个测试全绿（含 5 场景 e2e）。开发前请先阅读 [ARCHITECTURE.md](./ARCHITECTURE.md) 与 [CONTRIBUTING.md](./CONTRIBUTING.md)。
+> **当前状态：v0.1.0 全部里程碑（M1–M4）已完成。** 完整链路可用：RTMP 签名推流 → HLS/HTTP-FLV 拉流 → FLV 录制 → 管理 API（踢流/录制/健康检查）。47 个测试全绿（含 5 场景 e2e）。部署见 [docs/DEPLOY.md](./docs/DEPLOY.md)（Docker 一键启动）；上线前建议完成 [docs/VALIDATION.md](./docs/VALIDATION.md) 真实验证。开发前请先阅读 [ARCHITECTURE.md](./ARCHITECTURE.md) 与 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
 ## 特性（v1 范围）
 
@@ -111,6 +111,8 @@ StreamServer/
 - [CONTRIBUTING.md](./CONTRIBUTING.md) —— 分支策略、提交规范、代码审查、DoD
 - [docs/DSH-WORKFLOW.md](./docs/DSH-WORKFLOW.md) —— DSH agent 协作流程与纪律
 - [docs/PLAN-TEMPLATE.md](./docs/PLAN-TEMPLATE.md) —— Plan Mode 输出模板（先设计后编码）
+- [docs/DEPLOY.md](./docs/DEPLOY.md) —— 部署指南（Docker/裸机、环境变量清单、安全清单）
+- [docs/VALIDATION.md](./docs/VALIDATION.md) —— 真实使用验证手册（OBS 推流/稳定性/并发/弱网）
 - [CHANGELOG.md](./CHANGELOG.md) —— 变更日志
 
 ## 路线图

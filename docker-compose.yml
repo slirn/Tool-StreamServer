@@ -1,0 +1,33 @@
+services:
+  stream-server:
+    build: .
+    image: stream-server:latest
+    restart: unless-stopped
+    ports:
+      - "1935:1935" # RTMP 推流
+      - "8000:8000" # HLS / HTTP-FLV 拉流
+      - "8001:8001" # 管理 API（建议仅内网/加防火墙规则暴露）
+    environment:
+      NODE_ENV: production
+      # ⚠️ 生产必填：请替换为强随机值（AUTH_SECRET ≥16 字符，ADMIN_TOKEN ≥8 字符）
+      AUTH_SECRET: ${AUTH_SECRET:?请在 .env 或环境变量中设置 AUTH_SECRET}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?请在 .env 或环境变量中设置 ADMIN_TOKEN}
+      # 可选覆盖（默认值见 docs/DEPLOY.md）
+      # HTTP_PORT: "8000"
+      # RTMP_PORT: "1935"
+      # API_PORT: "8001"
+      # RTMP_APP: live
+      # HLS_FRAGMENT_SEC: "6"
+      # HLS_WINDOW_SIZE: "5"
+      # MEDIA_ROOT: /app/media
+      # RECORDS_ROOT: /app/records
+      LOG_LEVEL: info
+    volumes:
+      - ./media:/app/media # HLS 分片（随流清理）
+      - ./records:/app/records # FLV 录像（持久保存）
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8001/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
